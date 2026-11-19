@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shellless-ops"
+version = "0.1.0"
+description = "Repeatable file and process operations without shell command strings"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Repository = "https://github.com/zhangs-cedar/shellless-ops"
+Issues = "https://github.com/zhangs-cedar/shellless-ops/issues"
+
+[project.scripts]
+shellless-ops = "shellless_ops.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

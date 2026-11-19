@@ -1,0 +1,76 @@
+name: CI
+
+"on":
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-distributions:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Build wheel and source distribution
+        run: |
+          python -m pip install build
+          python -m build
+
+      - name: Test both installed distributions outside the checkout
+        shell: python
+        run: |
+          import os
+          import shutil
+          import subprocess
+          import sys
+          import tempfile
+          from pathlib import Path
+
+          checkout = Path.cwd()
+          env = os.environ.copy()
+          env.pop("PYTHONPATH", None)
+          env.pop("PYTHONHOME", None)
+
+          # Use separate environments and copy only the tests, not the source tree.
+          for pattern in ("shellless_ops-*.whl", "shellless_ops-*.tar.gz"):
+              (artifact,) = (checkout / "dist").glob(pattern)
+              print(f"Testing {artifact.name}", flush=True)
+              with tempfile.TemporaryDirectory(dir=os.environ["RUNNER_TEMP"]) as directory:
+                  root = Path(directory)
+                  venv = root / "venv"
+                  shutil.copytree(checkout / "tests", root / "tests")
+
+                  def run(*args):
+                      subprocess.run(args, cwd=root, env=env, check=True)
+
+                  run(sys.executable, "-I", "-m", "venv", venv)
+                  windows = os.name == "nt"
+                  scripts = venv / ("Scripts" if windows else "bin")
+                  python = scripts / ("python.exe" if windows else "python")
+                  cli = scripts / ("shellless-ops.exe" if windows else "shellless-ops")
+
+                  run(python, "-I", "-m", "pip", "install", "--no-deps", "--no-cache-dir", artifact)
+                  run(
+                      python, "-I", "-c",
+                      "import importlib.metadata as metadata, sysconfig; "
+                      "from pathlib import Path; import shellless_ops; "
+                      "assert metadata.metadata('shellless-ops')['Name'] == 'shellless-ops'; "
+                      "assert Path(shellless_ops.__file__).resolve().is_relative_to("
+                      "Path(sysconfig.get_path('purelib')).resolve()), shellless_ops.__file__",
+                  )
+                  run(cli, "--help")
+                  run(python, "-I", "-m", "shellless_ops", "--help")
+                  run(python, "-I", "-m", "unittest", "discover", "-s", "tests", "-v")

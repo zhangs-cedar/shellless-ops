@@ -5,8 +5,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from shellless_ops import copy_file, find_files, mkdir, read_text, run, write_text
+from shellless_ops import copy_file, find_files, mkdir, read_text, run, search_text, write_text
 
 
 class ShelllessOpsTests(unittest.TestCase):
@@ -41,6 +42,98 @@ class ShelllessOpsTests(unittest.TestCase):
         lower = write_text(mkdir(self.root / "a") / "a.txt", "")
         write_text(self.root / "b.TXT", "")
         self.assertEqual(find_files(self.root, "*.txt"), [lower])
+
+    def test_search_text_cli_and_api_return_numbered_literal_previews(self):
+        file = mkdir(self.root) / "配置 日志.txt"
+        query = "失败[1]"
+        write_text(file, f"{query}\r\n失败1\r\n{'x' * 30_000}{query}后续\r\n", encoding="utf-8-sig")
+        (self.root / "binary.dat").write_bytes(b"\xff")
+        expected = {
+            "matches": [
+                {"path": file.as_posix(), "line": 1, "text": query, "text_truncated": False},
+                {"path": file.as_posix(), "line": 3, "text": "xxxxx失败[1]后续", "text_truncated": True},
+            ],
+            "truncated": False,
+            "scan_limited": False,
+            "skipped_decode": 0,
+        }
+        self.assertEqual(
+            search_text(self.root, query, pattern="*.txt", limit=2, max_line_chars=12),
+            expected,
+        )
+        result = self.cli(
+            "search", self.root, query, "--pattern", "*.txt", "--limit", "2", "--max-line-chars", "12"
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(query.encode("utf-8"), result.stdout)
+        self.assertEqual(json.loads(result.stdout), expected)
+
+    def test_search_text_limit_and_order(self):
+        later = write_text(mkdir(self.root) / "z.txt", "needle\n")
+        earlier = write_text(mkdir(self.root / "a") / "first.txt", "needle needle\nneedle\n")
+        result = search_text(self.root, "needle", limit=2)
+        self.assertTrue(result["truncated"])
+        self.assertEqual(
+            [(hit["path"], hit["line"]) for hit in result["matches"]],
+            [(earlier.as_posix(), 1), (earlier.as_posix(), 2)],
+        )
+        self.assertEqual(
+            search_text(later, "missing"),
+            {"matches": [], "truncated": False, "scan_limited": False, "skipped_decode": 0},
+        )
+
+    def test_search_text_reports_missing_and_decode_errors(self):
+        with self.assertRaises(FileNotFoundError):
+            search_text(self.root, "needle")
+        bad = mkdir(self.root) / "wrong.txt"
+        bad.write_bytes(b"\xffneedle")
+        with self.assertRaisesRegex(ValueError, "wrong.txt"):
+            search_text(bad, "needle")
+        self.assertEqual(search_text(bad, "needle", encoding="latin-1")["matches"][0]["line"], 1)
+        result = self.cli("search", bad, "needle")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, b"")
+        self.assertIn(b"wrong.txt", result.stderr)
+
+    def test_search_repository_skips_default_exclusions_and_counts_decode_errors(self):
+        write_text(mkdir(self.root / ".git") / "config", "needle")
+        write_text(mkdir(self.root / ".venv") / "artifact.txt", "needle")
+        bad = self.root / "a.bin"
+        bad.write_bytes(b"needle\n" + b"x\n" * 5_000 + b"\xff")
+        visible = write_text(mkdir(self.root / ".source") / "源 文件.txt", "needle")
+        result = self.cli("search", self.root, "needle")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["skipped_decode"], 1)
+        self.assertEqual([hit["path"] for hit in report["matches"]], [visible.as_posix()])
+        self.assertFalse(report["scan_limited"])
+        self.assertEqual(len(find_files(self.root)), 4)
+
+    def test_search_text_scan_budget_is_distinct_from_match_limit(self):
+        write_text(mkdir(self.root) / "a.txt", "needle\n")
+        write_text(self.root / "b.txt", "needle\n")
+        report = search_text(self.root, "needle", limit=1, max_files=1)
+        self.assertEqual(len(report["matches"]), 1)
+        self.assertTrue(report["scan_limited"])
+        self.assertFalse(report["truncated"])
+        cli = self.cli("search", self.root, "needle", "--limit", "1", "--max-files", "1")
+        self.assertEqual(cli.returncode, 0, cli.stderr)
+        self.assertEqual(json.loads(cli.stdout), report)
+        for key, value in (("limit", 2.5), ("max_files", True), ("max_line_chars", 0)):
+            with self.subTest(key=key):
+                with self.assertRaisesRegex(ValueError, key):
+                    search_text(self.root, "needle", **{key: value})
+        self.assertEqual(self.cli("search", self.root, "needle", "--max-files", "0").returncode, 1)
+
+    def test_search_can_stop_before_descending_into_later_directories(self):
+        file = write_text(mkdir(self.root) / "a.txt", "needle\nneedle\n")
+        nested = mkdir(self.root / "a")
+        child = write_text(nested / "file.txt", "needle\n")
+        with patch("shellless_ops.os.scandir", wraps=os.scandir) as scandir:
+            result = search_text(self.root, "needle", limit=1)
+        self.assertTrue(result["truncated"])
+        scandir.assert_called_once_with(self.root)
+        self.assertEqual(find_files(self.root), [file, child])
 
     @unittest.skipIf(os.name == "nt", "symlink creation can require privileges on Windows")
     def test_find_skips_symbolic_links(self):

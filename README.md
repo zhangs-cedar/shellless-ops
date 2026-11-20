@@ -84,5 +84,3 @@ with capture(names=("amount",)) as report:
 ## 贡献
 
 欢迎提交 [Issue](https://github.com/zhangs-cedar/shellless-ops/issues) 或 Pull Request。在仓库目录执行 `python -m pip install .` 安装当前代码，再运行 `python -m unittest discover -s tests -v`。
-
-想试用常驻 Python 内核、按需读取失败现场和多 agent 独立会话，见 [AI 调试会话实验](experiments/ai-session/README.md)。它不属于基础库的发行包。

@@ -27,3 +27,9 @@
 - 对象摘要不调用用户对象的 `repr`、`__summary__` 或属性访问方法；源码默认不读取，主动开启也只读指定根目录内的少量行。
 - 安装 wheel 后，用 `shellless-ops evidence` 实际运行一个失败脚本，退出非零并生成 UTF-8 JSON 文件；不得覆盖已有报告。运行已有 CLI 回归，重新跑 Windows、macOS、Linux CI 后才发布。
 - 用 20 个注入缺陷核对两条路径取得同一诊断事实。分开记录固定分词器下的反馈 token、字节数与范围；不把它写成真实 agent 任务总 token、成功率或往返次数。
+
+## v0.3.0：Python 3.8 与取证异常
+
+- 用会覆盖类名切片的用户钩子构造失败，调用方收到的仍是原异常实例，证据报告照常生成；不得用诊断异常替换原异常。
+- 主包在 Python 3.8 和 3.14 上从构建产物隔离安装，`shellless-ops --help`、`python -m shellless_ops --help` 和测试套件通过。未运行的平台不计为兼容性已验证。
+- wheel 和 sdist 通过 `twine check --strict`，元数据声明 `shellless-ops`、MIT、Python 3.8+ 且无运行时依赖。

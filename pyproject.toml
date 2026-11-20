@@ -1,13 +1,13 @@
 [build-system]
-requires = ["setuptools>=77"]
-build-backend = "setuptools.build_meta"
+requires = ["flit_core>=4.2,<5"]
+build-backend = "flit_core.buildapi"
 
 [project]
 name = "shellless-ops"
 version = "0.2.0"
 description = "Cross-platform file and process tools with bounded Python failure evidence"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.8"
 license = "MIT"
 license-files = ["LICENSE"]
 classifiers = [
@@ -27,5 +27,5 @@ Issues = "https://github.com/zhangs-cedar/shellless-ops/issues"
 [project.scripts]
 shellless-ops = "shellless_ops.__main__:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.flit.sdist]
+include = ["tests/*.py"]

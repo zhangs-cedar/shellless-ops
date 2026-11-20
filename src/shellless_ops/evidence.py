@@ -13,7 +13,8 @@ _MAX_TEXT = 160
 
 
 def _type_name(kind):
-    return _TYPE_NAME.__get__(kind)[:80]
+    # A class name can be a str subclass with its own __getitem__.
+    return str.__getitem__(_TYPE_NAME.__get__(kind), slice(80))
 
 
 def _summary(value):
@@ -69,7 +70,7 @@ def _source_excerpt(filename, line, root):
         return None
     try:
         path = Path(filename).resolve()
-        if not path.is_relative_to(root) or not path.is_file():
+        if (path != root and root not in path.parents) or not path.is_file():
             return None
         with open_source(path) as stream:
             return [

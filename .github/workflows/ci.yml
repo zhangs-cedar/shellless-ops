@@ -15,6 +15,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.11", "3.14"]
+        include:
+          - os: ubuntu-24.04
+            python-version: "3.8"
 
     steps:
       - uses: actions/checkout@v7.0.1
@@ -68,8 +71,8 @@ jobs:
                       "import importlib.metadata as metadata, sysconfig; "
                       "from pathlib import Path; import shellless_ops; "
                       "assert metadata.metadata('shellless-ops')['Name'] == 'shellless-ops'; "
-                      "assert Path(shellless_ops.__file__).resolve().is_relative_to("
-                      "Path(sysconfig.get_path('purelib')).resolve()), shellless_ops.__file__",
+                      "assert Path(sysconfig.get_path('purelib')).resolve() in "
+                      "Path(shellless_ops.__file__).resolve().parents, shellless_ops.__file__",
                   )
                   run(cli, "--help")
                   run(python, "-I", "-m", "shellless_ops", "--help")

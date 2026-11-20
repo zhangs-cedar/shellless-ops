@@ -48,6 +48,27 @@ class EvidenceTests(unittest.TestCase):
             self.assertEqual(2 + 2, 4)
         self.assertEqual(normal, {"failure": None})
 
+    def test_capture_does_not_call_custom_type_name_slice(self):
+        class DiagnosticError(Exception):
+            pass
+
+        class TypeName(str):
+            def __getitem__(self, key):
+                raise DiagnosticError("custom type name slice called")
+
+        class Object:
+            pass
+
+        DiagnosticError.__name__ = TypeName("DiagnosticError")
+        Object.__name__ = TypeName("Object")
+        original = ValueError("original failure")
+        with self.assertRaises(ValueError) as caught, capture(names=("obj",)) as report:
+            obj = Object()
+            raise original
+
+        self.assertIs(caught.exception, original)
+        self.assertEqual(report["failure"]["values"], {"obj": {"type": "Object"}})
+
     def test_source_is_opt_in_and_runtime_frames_are_bounded(self):
         def recurse(depth):
             if depth:

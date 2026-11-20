@@ -14,16 +14,17 @@ import platform
 import re
 from tempfile import TemporaryDirectory
 import traceback
+from typing import Tuple, Type, Union
 
 
 @dataclass(frozen=True)
 class Fixture:
     label: str
     source: str
-    error: type[Exception]
+    error: Type[Exception]
     function: str
-    healthy: str | int
-    injected: tuple[str | int, ...]
+    healthy: Union[str, int]
+    injected: Tuple[Union[str, int], ...]
     local: str
     message_prefix: str
 
@@ -128,14 +129,14 @@ def display_path(raw, root):
         else:
             return raw
     for prefix, label in ((root, "fixtures"), (REPOSITORY, "repo")):
-        if path.is_relative_to(prefix):
+        if path == prefix or prefix in path.parents:
             return f"{label}/{path.relative_to(prefix).as_posix()}"
     return raw
 
 
 def traceback_payloads(operation, record_id, injected, root):
     def formatted(error, limit):
-        text = "".join(traceback.format_exception(error, limit=limit))
+        text = "".join(traceback.format_exception(type(error), error, error.__traceback__, limit=limit))
         return FRAME.sub(
             lambda frame: f'  File "{display_path(frame[1], root)}", '
                           f"line {frame[2]}, in {frame[3]}",
@@ -213,7 +214,7 @@ def evidence_diagnosis(payload):
 def compare(capture, fixture, index, injected, root):
     record_id = f"{fixture.label}-{index}-订单"
     path = root / f"{fixture.label}-{index}.py"
-    path.write_text(fixture.source, encoding="utf-8", newline="\n")
+    path.write_bytes(fixture.source.encode("utf-8"))
     scope = {}
     exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), scope)
     operation = scope["operation"]

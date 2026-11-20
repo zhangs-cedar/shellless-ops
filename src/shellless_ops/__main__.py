@@ -39,7 +39,7 @@ def _run_evidence(args, parser):
     finally:
         sys.argv, sys.path = argv, path
         # Finalization errors must not change an active script exception.
-        active_error = sys.exception()
+        active_error = sys.exc_info()[1]
         try:
             with stream:
                 json.dump(

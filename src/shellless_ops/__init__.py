@@ -105,7 +105,7 @@ def search_text(
                         report["truncated"] = True
                         return report
 
-                    text = line.removesuffix("\n")
+                    text = line[:-1] if line.endswith("\n") else line
                     clipped = len(text) > max_line_chars
                     if clipped:
                         context = max(0, (max_line_chars - len(query)) // 2)

@@ -1,6 +1,6 @@
 # shellless-ops
 
-`shellless-ops` 是一套跨平台的 Python 文件和进程工具。它统一路径、编码、查找结果和退出码，减少同一任务需要分别维护 Bash 和 PowerShell 版本的情况。要求 Python 3.11+，无运行时依赖。
+`shellless-ops` 是一套跨平台的 Python 文件和进程工具。它统一路径、编码、查找结果和退出码，减少同一任务需要分别维护 Bash 和 PowerShell 版本的情况。要求 Python 3.8+，无运行时依赖。
 
 ## 安装
 
